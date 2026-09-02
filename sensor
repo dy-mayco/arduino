@@ -1,0 +1,62 @@
+// Pinos dos Sensores
+const int SENSOR_ESQ = 9;
+const int SENSOR_DIR = 10;
+
+// Pinos dos Motores (Ponte H L298N)
+const int IN1 = 4; // Motor Esquerdo (Sentido A)
+const int IN2 = 5; // Motor Esquerdo (Sentido B)
+const int IN3 = 6; // Motor Direito (Sentido A)
+const int IN4 = 7; // Motor Direito (Sentido B)
+
+// Pinos de Controle de Velocidade (Pinos PWM)
+const int ENA = 9;  // Controle de Velocidade Motor Esquerdo
+const int ENB = 10; // Controle de Velocidade Motor Direito
+
+// Valor da velocidade: de 0 (parado) a 255 (velocidade máxima)
+const int VELOCIDADE = 5;
+
+void setup() {
+  pinMode(SENSOR_ESQ, INPUT);
+  pinMode(SENSOR_DIR, INPUT);
+  
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // Configuração dos pinos PWM de velocidade
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+}
+
+void loop() {
+  int leituraEsq = digitalRead(SENSOR_ESQ);
+  int leituraDir = digitalRead(SENSOR_DIR);
+
+  // Envia o sinal de velocidade definido para os motores
+  analogWrite(ENA, VELOCIDADE);
+  analogWrite(ENB, VELOCIDADE);
+
+  // Se ambos identificarem a cor Branca (HIGH), segue em frente.
+  // Se algum detectar a cor Preta (LOW), para completamente.
+  if (leituraEsq == 0 && leituraDir == 0) {
+    moverFrente();
+  } else {
+    parar();
+  }
+}
+
+void moverFrente() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void parar() {
+  // Coloca todas as entradas da Ponte H em LOW para desativar a rotação dos motores
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
