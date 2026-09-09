@@ -1,0 +1,106 @@
+#include "AFMotor.h"
+
+// Sensores IR
+#define Pin_Sensor_Esquerda 9
+#define Pin_Sensor_Direita 10
+
+// Motores
+AF_DCMotor Motor_Direita(2);   // Motor M2
+AF_DCMotor Motor_Esquerda(3);  // Motor M3
+
+// Configurações de movimento
+int velocidade = 70;       // Aumentado levemente para ter força suficiente no giro
+int tempo_curva = 600;      // Tempo em ms para realizar o giro fora da linha
+int tempo_pos_manobra = 400; // Tempo de ignorar a leitura logo após virar
+
+int Sensor_Esquerda;
+int Sensor_Direita;
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(Pin_Sensor_Esquerda, INPUT);
+  pinMode(Pin_Sensor_Direita, INPUT);
+
+  Motor_Esquerda.run(RELEASE);
+  Motor_Direita.run(RELEASE);
+}
+
+void loop() {
+  Sensor_Esquerda = digitalRead(Pin_Sensor_Esquerda);
+  Sensor_Direita = digitalRead(Pin_Sensor_Direita);
+
+  // 1. SENSOR ESQUERDO DETECTOU PRETO -> RECUA E GIRA PARA A DIREITA
+  if (Sensor_Esquerda == 1 && Sensor_Direita == 0) {
+    Motor_Esquerda.run(RELEASE);
+    Motor_Direita.run(RELEASE);
+    delay(200);
+
+    // Ré rápida para sair de cima da linha
+    Motor_Esquerda.setSpeed(velocidade);
+    Motor_Direita.setSpeed(velocidade);
+    Motor_Esquerda.run(BACKWARD);
+    Motor_Direita.run(BACKWARD);
+    delay(800);
+
+    // Gira para a Direita (Esquerda FRENTE, Direita TRÁS)
+    Motor_Esquerda.run(FORWARD);
+    Motor_Direita.run(BACKWARD);
+    delay(tempo_curva);
+
+    // Pausa técnica para estabilizar e evitar leitura dupla
+    delay(tempo_pos_manobra);
+  }
+  
+  // 2. SENSOR DIREITO DETECTOU PRETO -> RECUA E GIRA PARA A ESQUERDA
+  else if (Sensor_Direita == 1 && Sensor_Esquerda == 0) {
+    Motor_Esquerda.run(RELEASE);
+    Motor_Direita.run(RELEASE);
+    delay(200);
+
+    // Ré rápida para sair de cima da linha
+    Motor_Esquerda.setSpeed(velocidade);
+    Motor_Direita.setSpeed(velocidade);
+    Motor_Esquerda.run(BACKWARD);
+    Motor_Direita.run(BACKWARD);
+    delay(800);
+
+    // Gira para a Esquerda (Esquerda TRÁS, Direita FRENTE)
+    Motor_Esquerda.run(BACKWARD);
+    Motor_Direita.run(FORWARD);
+    delay(tempo_curva);
+
+    // Pausa técnica para estabilizar e evitar leitura dupla
+    delay(tempo_pos_manobra);
+  }
+
+  // 3. AMBOS DETECTARAM PRETO -> RECUA E GIRA 180 GRAUS
+  else if (Sensor_Esquerda == 1 && Sensor_Direita == 1) {
+    Motor_Esquerda.run(RELEASE);
+    Motor_Direita.run(RELEASE);
+    delay(200);
+
+    // Ré mais longa
+    Motor_Esquerda.setSpeed(velocidade);
+    Motor_Direita.setSpeed(velocidade);
+    Motor_Esquerda.run(BACKWARD);
+    Motor_Direita.run(BACKWARD);
+    delay(1000);
+
+    // Giro de 180 graus
+    Motor_Esquerda.run(FORWARD);
+    Motor_Direita.run(BACKWARD);
+    delay(tempo_curva * 2);
+
+    // Pausa técnica
+    delay(tempo_pos_manobra);
+  }
+
+  // 4. CAMINHO LIVRE -> ANDA PARA FRENTE
+  else {
+    Motor_Esquerda.setSpeed(velocidade);
+    Motor_Direita.setSpeed(velocidade);
+    Motor_Esquerda.run(FORWARD);
+    Motor_Direita.run(FORWARD);
+  }
+}
