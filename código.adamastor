@@ -1,0 +1,80 @@
+#include <AFMotor.h>
+
+AF_DCMotor motorEsq(2); // Motor Esquerdo (M2)
+AF_DCMotor motorDir(3); // Motor Direito (M3)
+
+int velEsq = 200; // Velocidade inicial do motor esquerdo (0 a 255)
+int velDir = 200; // Velocidade inicial do motor direito (0 a 255)
+
+void setup() {
+  Serial.begin(9600);
+  atualizarVelocidades();
+  pararMotores();
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char tecla = Serial.read();
+
+    switch (tecla) {
+      // Ajuste Motor Esquerdo
+      case '1':
+        velEsq = min(255, velEsq + 15);
+        atualizarVelocidades();
+        break;
+      case '2':
+        velEsq = max(0, velEsq - 15);
+        atualizarVelocidades();
+        break;
+
+      // Ajuste Motor Direito
+      case '3':
+        velDir = min(255, velDir + 15);
+        atualizarVelocidades();
+        break;
+      case '4':
+        velDir = max(0, velDir - 15);
+        atualizarVelocidades();
+        break;
+
+      // Testes de acionamento
+      case 'e': case 'E':
+        motorEsq.run(FORWARD);
+        motorDir.run(RELEASE);
+        Serial.println("Status: Acionado APENAS Motor Esquerdo");
+        break;
+
+      case 'd': case 'D':
+        motorEsq.run(RELEASE);
+        motorDir.run(FORWARD);
+        Serial.println("Status: Acionado APENAS Motor Direito");
+        break;
+
+      case 'f': case 'F':
+        motorEsq.run(FORWARD);
+        motorDir.run(FORWARD);
+        Serial.println("Status: Acionados AMBOS os motores");
+        break;
+
+      case 'p': case 'P':
+        pararMotores();
+        Serial.println("Status: Motores PARADOS");
+        break;
+    }
+  }
+}
+
+void atualizarVelocidades() {
+  motorEsq.setSpeed(velEsq);
+  motorDir.setSpeed(velDir);
+  
+  Serial.print("Velocidade [Esq]: ");
+  Serial.print(velEsq);
+  Serial.print(" | [Dir]: ");
+  Serial.println(velDir);
+}
+
+void pararMotores() {
+  motorEsq.run(RELEASE);
+  motorDir.run(RELEASE);
+}
