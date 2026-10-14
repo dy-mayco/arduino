@@ -1,0 +1,86 @@
+/*********************************************************/
+/* Aula 40 - Braco robotico radiocontrolado - Transmissor */
+/*********************************************************/
+
+const byte endereco[6] = "00001";
+
+#include <RF24.h>
+
+#define CSN 10
+#define CE 9
+
+#define eixoX A0
+#define eixoY A1
+
+#define botaoA 2
+#define botaoB 3
+#define botaoC 4
+#define botaoD 5
+
+RF24 radio(CE, CSN);
+
+void setup() {
+  Serial.begin(9600);
+
+  radio.begin();
+  radio.openWritingPipe(endereco);
+  radio.setPALevel(RF24_PA_MIN);
+  radio.stopListening();
+
+  pinMode(botaoA, INPUT_PULLUP);
+  pinMode(botaoB, INPUT_PULLUP);
+  pinMode(botaoC, INPUT_PULLUP);
+  pinMode(botaoD, INPUT_PULLUP);
+
+  Serial.println("Transmissor iniciado!");
+}
+
+void loop() {
+  int joyX = analogRead(eixoX);
+  int joyY = analogRead(eixoY);
+
+  char comando = 'P';
+  String mensagem = "Nenhum botao pressionado";
+
+  if (digitalRead(botaoA) == LOW) {
+    comando = 'C';
+    mensagem = "Botao A pressionado";
+  }
+  else if (digitalRead(botaoB) == LOW) {
+    comando = 'D';
+    mensagem = "Botao B pressionado";
+  }
+  else if (digitalRead(botaoC) == LOW) {
+    comando = 'B';
+    mensagem = "Botao C pressionado";
+  }
+  else if (digitalRead(botaoD) == LOW) {
+    comando = 'E';
+    mensagem = "Botao D pressionado";
+  }
+  else if (joyY > 700) {
+    comando = 'Y';
+    mensagem = "Joystick para frente";
+  }
+  else if (joyY < 300) {
+    comando = 'y';
+    mensagem = "Joystick para tras";
+  }
+  else if (joyX > 700) {
+    comando = 'X';
+    mensagem = "Joystick para direita";
+  }
+  else if (joyX < 300) {
+    comando = 'x';
+    mensagem = "Joystick para esquerda";
+  }
+
+  radio.write(&comando, sizeof(comando));
+
+  Serial.print(mensagem);
+  Serial.print(" | Comando enviado: ");
+  Serial.println(comando);
+
+  delay(100);
+
+}
