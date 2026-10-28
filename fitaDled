@@ -1,0 +1,341 @@
+
+/*
+    Colegio Estadual Gabriel de Lara - 17/09/2026
+    Autor: Gerson Cesar Grobe de Miranda, 00
+
+    Controle de fita LED com protocolo NEC.
+    Botoes 0 a 9, efeitos e controle de velocidade.
+*/
+
+#include <Adafruit_NeoPixel.h>
+#include <IRremote.hpp>
+
+#define PIN 2
+#define PIN_IR 3
+#define numeroPixels 50
+
+Adafruit_NeoPixel pixels(
+  numeroPixels, PIN, NEO_GRB + NEO_KHZ800
+);
+
+// Codigos NEC confirmados no seu codigo
+const uint8_t BT_POWER = 0x1C;
+const uint8_t BT_0     = 0x19;
+const uint8_t BT_1     = 0x45;
+const uint8_t BT_2     = 0x46;
+const uint8_t BT_3     = 0x47;
+const uint8_t BT_4     = 0x44;
+const uint8_t BT_5     = 0x40;
+const uint8_t BT_6     = 0x43;
+const uint8_t BT_MAIS  = 0x18;
+const uint8_t BT_MENOS = 0x52;
+
+// Codigos NEC comuns para os botoes restantes.
+// Confira no Monitor Serial se forem diferentes.
+const uint8_t BT_7 = 0x07;
+const uint8_t BT_8 = 0x15;
+const uint8_t BT_9 = 0x09;
+
+int tempo = 180;
+
+int redColor = 0;
+int greenColor = 0;
+int blueColor = 0;
+
+bool ligada = true;
+bool automatico = true;
+
+int posicao = 0;
+int direcao = 1;
+
+int efeito = 0;
+bool estadoPisca = false;
+
+unsigned long ultimaAtualizacao = 0;
+unsigned long ultimoEfeito = 0;
+
+const unsigned long intervaloPisca = 350;
+
+// Leitura do controle infravermelho NEC
+int readInfrared() {
+  if (IrReceiver.decode()) {
+    int comando = -1;
+
+    if (IrReceiver.decodedIRData.protocol == NEC &&
+        !(IrReceiver.decodedIRData.flags &
+          IRDATA_FLAGS_IS_REPEAT)) {
+
+      comando = IrReceiver.decodedIRData.command;
+
+      Serial.print("Comando recebido: 0x");
+      if (comando < 0x10) Serial.print("0");
+      Serial.println(comando, HEX);
+    }
+
+    IrReceiver.resume();
+    return comando;
+  }
+
+  return -1;
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  pixels.begin();
+  pixels.setBrightness(50);
+  pixels.clear();
+  pixels.show();
+
+  IrReceiver.begin(PIN_IR, ENABLE_LED_FEEDBACK);
+
+  randomSeed(micros());
+  setColor();
+}
+
+void loop() {
+  int button = readInfrared();
+
+  if (button >= 0) {
+    tratarComando(button);
+  }
+
+  if (!ligada) return;
+
+  if (automatico) {
+    executarAutomatico();
+  } else if (efeito > 0) {
+    executarEfeito();
+  }
+}
+
+// Efeito automatico original: um ponto colorido de ida e volta
+void executarAutomatico() {
+  unsigned long agora = millis();
+
+  if (agora - ultimaAtualizacao >= (unsigned long)tempo) {
+    ultimaAtualizacao = agora;
+
+    pixels.setPixelColor(
+      posicao,
+      pixels.Color(redColor, greenColor, blueColor)
+    );
+    pixels.show();
+
+    posicao += direcao;
+
+    if (posicao >= numeroPixels) {
+      posicao = numeroPixels - 1;
+      direcao = -1;
+      setColor();
+    } else if (posicao < 0) {
+      posicao = 0;
+      direcao = 1;
+      setColor();
+    }
+  }
+}
+
+// Comandos do controle
+void tratarComando(int button) {
+  switch (button) {
+    case BT_POWER:
+      ligada = !ligada;
+
+      if (!ligada) {
+        pixels.clear();
+        pixels.show();
+      } else if (automatico) {
+        reiniciarEfeito();
+      } else if (efeito > 0) {
+        estadoPisca = false;
+        ultimoEfeito = millis();
+      } else {
+        preencherFita(redColor, greenColor, blueColor);
+      }
+      break;
+
+    case BT_0:
+      ligada = true;
+      automatico = false;
+
+      efeito++;
+      if (efeito > 5) efeito = 1;
+
+      estadoPisca = false;
+      ultimoEfeito = millis();
+
+      pixels.clear();
+      pixels.show();
+
+      Serial.print("Efeito selecionado: ");
+      Serial.println(efeito);
+      break;
+
+    case BT_1:
+      corFixa(255, 0, 0);       // Vermelho
+      break;
+
+    case BT_2:
+      corFixa(0, 255, 0);       // Verde
+      break;
+
+    case BT_3:
+      corFixa(0, 0, 255);       // Azul
+      break;
+
+    case BT_4:
+      corFixa(255, 255, 0);     // Amarelo
+      break;
+
+    case BT_5:
+      corFixa(255, 0, 255);     // Magenta
+      break;
+
+    case BT_6:
+      corFixa(0, 255, 255);     // Ciano
+      break;
+
+    case BT_7:
+      corFixa(255, 255, 255);   // Branco
+      break;
+
+    case BT_8:
+      ligada = true;
+      automatico = false;
+      efeito = 0;
+      mostrarArcoIris();
+      break;
+
+    case BT_9:
+      corFixa(255, 80, 0);     // Laranja
+      break;
+
+    case BT_MAIS:
+      tempo = max(20, tempo - 30);
+      Serial.print("Tempo: ");
+      Serial.println(tempo);
+      break;
+
+    case BT_MENOS:
+      tempo = min(1000, tempo + 30);
+      Serial.print("Tempo: ");
+      Serial.println(tempo);
+      break;
+  }
+}
+
+void executarEfeito() {
+  unsigned long agora = millis();
+
+  if (agora - ultimoEfeito < intervaloPisca) return;
+
+  ultimoEfeito = agora;
+  estadoPisca = !estadoPisca;
+
+  switch (efeito) {
+    case 1:
+      // Pisca a fita inteira na cor atual
+      if (estadoPisca) {
+        preencherFita(redColor, greenColor, blueColor);
+      } else {
+        pixels.clear();
+        pixels.show();
+      }
+      break;
+
+    case 2:
+      // Pisca LEDs alternados
+      pixels.clear();
+
+      for (int i = 0; i < numeroPixels; i++) {
+        if ((i % 2) == (estadoPisca ? 0 : 1)) {
+          pixels.setPixelColor(
+            i, pixels.Color(redColor, greenColor, blueColor)
+          );
+        }
+      }
+
+      pixels.show();
+      break;
+
+    case 3:
+      // Pisca vermelho
+      if (estadoPisca) {
+        preencherFita(255, 0, 0);
+      } else {
+        pixels.clear();
+        pixels.show();
+      }
+      break;
+
+    case 4:
+      // Pisca azul
+      if (estadoPisca) {
+        preencherFita(0, 0, 255);
+      } else {
+        pixels.clear();
+        pixels.show();
+      }
+      break;
+
+    case 5:
+      // Pisca arco-iris
+      if (estadoPisca) {
+        mostrarArcoIris();
+      } else {
+        pixels.clear();
+        pixels.show();
+      }
+      break;
+  }
+}
+
+void preencherFita(int vermelho, int verde, int azul) {
+  pixels.fill(pixels.Color(vermelho, verde, azul));
+  pixels.show();
+}
+
+void corFixa(int vermelho, int verde, int azul) {
+  ligada = true;
+  automatico = false;
+  efeito = 0;
+
+  redColor = vermelho;
+  greenColor = verde;
+  blueColor = azul;
+
+  preencherFita(redColor, greenColor, blueColor);
+}
+
+void mostrarArcoIris() {
+  for (int i = 0; i < numeroPixels; i++) {
+    uint16_t matiz =
+      ((uint32_t)i * 65535UL) / numeroPixels;
+
+    pixels.setPixelColor(
+      i, pixels.gamma32(pixels.ColorHSV(matiz))
+    );
+  }
+
+  pixels.show();
+}
+
+void reiniciarEfeito() {
+  posicao = 0;
+  direcao = 1;
+  ultimaAtualizacao = millis();
+
+  efeito = 0;
+  automatico = true;
+
+  setColor();
+  pixels.clear();
+  pixels.show();
+}
+
+void setColor() {
+  redColor = random(0, 256);
+  greenColor = random(0, 256);
+  blueColor = random(0, 256);
+}
